@@ -1,36 +1,26 @@
 function actualizar(topic, valor) {
 
-    // 🔧 Ajuste de rango (ejemplo: 0 a 100 toneladas)
-    valor = Math.max(0, Math.min(100, valor));
-
     let id = "";
+    let vid = "";
+    let maxTon = 100;
 
-    if (topic === "silos/esp32/reading1") id = "c1";
-    if (topic === "silos/esp32/reading2") id = "c2";
-    if (topic === "silos/esp32/reading3") id = "c3";
-    if (topic === "silos/esp32/reading4") id = "c4";
+    if (topic === "silos/esp32/reading1") { id="c1"; vid="v1"; maxTon=75; }
+    if (topic === "silos/esp32/reading2") { id="c2"; vid="v2"; maxTon=45; }
+    if (topic === "silos/esp32/reading3") { id="c3"; vid="v3"; maxTon=75; }
+    if (topic === "silos/esp32/reading4") { id="c4"; vid="v4"; maxTon=45; }
 
-    const el = document.getElementById(id);
+    let porcentaje = (valor / maxTon) * 360;
 
-    // 🎨 COLOR SEGÚN NIVEL
-    // 🎨 COLOR DINÁMICO PRO
-let color = "#22c55e"; // verde
+    // 🎨 COLORES TIPO INDUSTRIAL
+    let color = "#00f0ff";
 
-if (valor < 40) {
-    color = "#facc15"; // amarillo
-}
+    if (valor < maxTon * 0.5) color = "#facc15";
+    if (valor < maxTon * 0.25) color = "#ef4444";
 
-if (valor < 20) {
-    color = "#ef4444"; // rojo
-}
-    // 📊 PROGRESO (si 100 tn = lleno)
-    let porcentaje = valor; 
+    // 🎯 ANILLO
+    document.getElementById(id).style.background =
+        `conic-gradient(${color} ${porcentaje}deg, #111 ${porcentaje}deg)`;
 
-    el.style.background =
-        `conic-gradient(${color} ${porcentaje}%, #0f172a ${porcentaje}%)`;
-
-    // 🧮 ACTUALIZAR TEXTO
-    el.querySelector(".valor").innerText = Math.round(valor);
-    document.getElementById(id).style.boxShadow =
-    `0 0 20px ${color}`;
+    // 🔢 TEXTO
+    document.getElementById(vid).innerText = Math.round(valor);
 }

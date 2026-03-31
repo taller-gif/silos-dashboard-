@@ -1,200 +1,258 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Panel de Control - Silos</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silo Control Pro - ESP32</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --card-bg: #0f172a;
+            --accent: #00f0ff;
+            --safe: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --border: #1e293b;
+        }
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+        body {
+            background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 100%);
+            color: #f8fafc;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
 
-<style>
-body {
-    margin: 0;
-    font-family: 'Segoe UI', Arial;
-    background: #020617;
-    color: #e2e8f0;
-}
+        .header {
+            padding: 25px;
+            text-align: center;
+            border-bottom: 2px solid var(--accent);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.15);
+        }
 
-/* 🔝 HEADER */
-.header {
-    background: #020617;
-    padding: 15px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    border-bottom: 2px solid #1e293b;
-    letter-spacing: 1px;
-}
+        .header h1 { margin: 0; font-size: 24px; letter-spacing: 3px; }
 
-/* 📊 GRID */
-.container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 25px;
-    padding: 20px;
-}
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px;
+            padding: 30px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
 
-/* 🧱 TARJETA */
-.silo {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 10px;
-    padding: 15px;
-    text-align: center;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-}
+        .silo-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
 
-/* 🏷️ TITULO SILO */
-.silo h3 {
-    margin: 5px;
-    font-size: 16px;
-}
+        .silo-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
 
-/* 🛢️ TANQUE */
-.tanque {
-    width: 70px;
-    height: 180px;
-    margin: 15px auto;
-    border: 2px solid #334155;
-    border-radius: 10px;
-    position: relative;
-    background: #020617;
-    overflow: hidden;
-}
+        /* Gráfica Circular */
+        .gauge-box {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-/* 🔥 NIVEL (LLENA DESDE ABAJO) */
-.nivel {
-    width: 100%;
-    position: absolute;
-    bottom: 0;
-    height: 0%;
-    background: red;
-    transition: all 0.5s ease;
-}
+        .outer-ring {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(var(--safe) 0deg, #1e293b 0deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-/* 🔢 VALOR */
-.valor {
-    font-size: 20px;
-    font-weight: bold;
-}
+        .inner-ring {
+            width: 140px;
+            height: 140px;
+            background: var(--bg);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        }
 
-.unidad {
-    font-size: 12px;
-    opacity: 0.7;
-}
-</style>
+        .value { font-size: 38px; font-weight: 800; line-height: 1; }
+        .unit { font-size: 14px; opacity: 0.5; margin-top: 5px; }
+        .percent-tag {
+            font-size: 12px;
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-top: 8px;
+            color: var(--accent);
+        }
+
+        .silo-name {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+
+        /* Ticks de nivel (Marcadores visuales) */
+        .ticks {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px dashed rgba(255,255,255,0.05);
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .danger-mode { animation: pulse 1.5s infinite; border-color: var(--danger) !important; }
+    </style>
 </head>
-
 <body>
 
 <div class="header">
-    NIVELES DE SILOS
+    <h1>PANEL DE CONTROL DE SILOS</h1>
 </div>
 
-<div class="container">
-
-    <div class="silo">
-        <h3>SILO A</h3>
-        <div class="tanque">
-            <div class="nivel" id="n1"></div>
+<div class="grid">
+    <div class="silo-card" id="card-silos/esp32/reading1">
+        <div class="gauge-box">
+            <div class="ticks"></div>
+            <div class="outer-ring" id="ring-1">
+                <div class="inner-ring">
+                    <div class="value" id="val-1">0</div>
+                    <div class="unit">TONELADAS</div>
+                    <div class="percent-tag" id="perc-1">0%</div>
+                </div>
+            </div>
         </div>
-        <div class="valor" id="v1">0</div>
-        <div class="unidad">toneladas</div>
+        <div class="silo-name">SILO A (75 TN)</div>
     </div>
 
-    <div class="silo">
-        <h3>SILO B</h3>
-        <div class="tanque">
-            <div class="nivel" id="n2"></div>
+    <div class="silo-card" id="card-silos/esp32/reading2">
+        <div class="gauge-box">
+            <div class="ticks"></div>
+            <div class="outer-ring" id="ring-2">
+                <div class="inner-ring">
+                    <div class="value" id="val-2">0</div>
+                    <div class="unit">TONELADAS</div>
+                    <div class="percent-tag" id="perc-2">0%</div>
+                </div>
+            </div>
         </div>
-        <div class="valor" id="v2">0</div>
-        <div class="unidad">toneladas</div>
+        <div class="silo-name">SILO B (45 TN)</div>
     </div>
 
-    <div class="silo">
-        <h3>SILO C</h3>
-        <div class="tanque">
-            <div class="nivel" id="n3"></div>
+    <div class="silo-card" id="card-silos/esp32/reading3">
+        <div class="gauge-box">
+            <div class="ticks"></div>
+            <div class="outer-ring" id="ring-3">
+                <div class="inner-ring">
+                    <div class="value" id="val-3">0</div>
+                    <div class="unit">TONELADAS</div>
+                    <div class="percent-tag" id="perc-3">0%</div>
+                </div>
+            </div>
         </div>
-        <div class="valor" id="v3">0</div>
-        <div class="unidad">toneladas</div>
+        <div class="silo-name">SILO C (75 TN)</div>
     </div>
 
-    <div class="silo">
-        <h3>SILO D</h3>
-        <div class="tanque">
-            <div class="nivel" id="n4"></div>
+    <div class="silo-card" id="card-silos/esp32/reading4">
+        <div class="gauge-box">
+            <div class="ticks"></div>
+            <div class="outer-ring" id="ring-4">
+                <div class="inner-ring">
+                    <div class="value" id="val-4">0</div>
+                    <div class="unit">TONELADAS</div>
+                    <div class="percent-tag" id="perc-4">0%</div>
+                </div>
+            </div>
         </div>
-        <div class="valor" id="v4">0</div>
-        <div class="unidad">toneladas</div>
+        <div class="silo-name">SILO D (45 TN)</div>
     </div>
-
 </div>
 
 <script>
+    // Configuración mapeada exactamente a tus tópicos y capacidades
+    const SILO_MAP = {
+        "silos/esp32/reading1": { ring: "ring-1", val: "val-1", perc: "perc-1", max: 75 },
+        "silos/esp32/reading2": { ring: "ring-2", val: "val-2", perc: "perc-2", max: 45 },
+        "silos/esp32/reading3": { ring: "ring-3", val: "val-3", perc: "perc-3", max: 75 },
+        "silos/esp32/reading4": { ring: "ring-4", val: "val-4", perc: "perc-4", max: 45 }
+    };
 
-// 🔌 MQTT
-const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+    // Conexión MQTT (Usando el broker que ya tienes configurado)
+    const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
-client.on("connect", () => {
-    console.log("✅ Conectado");
+    client.on("connect", () => {
+        console.log("✅ Sistema de Monitoreo Online");
+        // Suscribirse a todos los tópicos definidos
+        Object.keys(SILO_MAP).forEach(topic => client.subscribe(topic));
+    });
 
-    client.subscribe("silos/esp32/reading1");
-    client.subscribe("silos/esp32/reading2");
-    client.subscribe("silos/esp32/reading3");
-    client.subscribe("silos/esp32/reading4");
-});
+    client.on("message", (topic, message) => {
+        const rawValue = parseFloat(message.toString());
+        if (!isNaN(rawValue)) {
+            updateDashboard(topic, rawValue);
+        }
+    });
 
-client.on("message", (topic, message) => {
-    let valor = parseFloat(message.toString());
-    actualizar(topic, valor);
-});
+    function updateDashboard(topic, value) {
+        const config = SILO_MAP[topic];
+        if (!config) return;
 
-// 🎯 ACTUALIZAR TANQUE
-function actualizar(topic, valor) {
+        // Cálculos de porcentaje
+        const clampedValue = Math.max(0, Math.min(value, config.max));
+        const percentage = (clampedValue / config.max) * 100;
+        const degrees = percentage * 3.6;
 
-    let maxTon = 100; // 🔧 AJUSTAR A TU SILO REAL
+        // Lógica de colores dinámica
+        let color = "var(--safe)";
+        const card = document.getElementById(`card-${topic}`);
+        
+        if (percentage < 20) {
+            color = "var(--danger)";
+            card.classList.add('danger-mode');
+        } else if (percentage < 50) {
+            color = "var(--warning)";
+            card.classList.remove('danger-mode');
+        } else {
+            color = "var(--safe)";
+            card.classList.remove('danger-mode');
+        }
 
-    let porcentaje = (valor / maxTon) * 100;
-
-    let id = "";
-    let vid = "";
-
-    if (topic === "silos/esp32/reading1") { id="n1"; vid="v1"; }
-    if (topic === "silos/esp32/reading2") { id="n2"; vid="v2"; }
-    if (topic === "silos/esp32/reading3") { id="n3"; vid="v3"; }
-    if (topic === "silos/esp32/reading4") { id="n4"; vid="v4"; }
-
-    // 🎨 COLORES INDUSTRIALES
-    let color = "#22c55e"; // verde
-
-    if (valor < 40) color = "#facc15"; // amarillo
-    if (valor < 20) color = "#ef4444"; // rojo
-
-    // 📊 NIVEL DESDE ABAJO
-    const nivel = document.getElementById(id);
-    nivel.style.height = porcentaje + "%";
-    nivel.style.background = color;
-
-    // 🔢 TEXTO
-    document.getElementById(vid).innerText = Math.round(valor);
-
-    // 🔴 PARPADEO CRÍTICO
-    if (valor < 20) {
-        nivel.style.animation = "blink 1s infinite";
-    } else {
-        nivel.style.animation = "none";
+        // Actualizar UI
+        const ring = document.getElementById(config.ring);
+        ring.style.background = `conic-gradient(${color} ${degrees}deg, #1e293b ${degrees}deg)`;
+        
+        document.getElementById(config.val).innerText = clampedValue.toFixed(1);
+        document.getElementById(config.perc).innerText = Math.round(percentage) + "%";
     }
-}
-
-// 🔴 ANIMACIÓN
-const style = document.createElement('style');
-style.innerHTML = `
-@keyframes blink {
-    50% { opacity: 0.3; }
-}`;
-document.head.appendChild(style);
-
 </script>
-
 </body>
 </html>
