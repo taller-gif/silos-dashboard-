@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Silo Control Pro - ESP32</title>
+    <title>Silo Control Pro + Reportes</title>
+    
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         :root {
             --bg: #020617;
@@ -19,70 +22,59 @@
         body {
             background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 100%);
             color: #f8fafc;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             min-height: 100vh;
         }
 
-        .header {
-            padding: 25px;
+        header {
+            width: 100%;
+            padding: 20px;
             text-align: center;
-            border-bottom: 2px solid var(--accent);
             background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.15);
+            border-bottom: 2px solid var(--accent);
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.2);
         }
-
-        .header h1 { margin: 0; font-size: 24px; letter-spacing: 3px; }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 25px;
-            padding: 30px;
-            max-width: 1300px;
-            margin: 0 auto;
+            padding: 40px;
+            width: 90%;
+            max-width: 1400px;
         }
 
         .silo-card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 24px;
-            padding: 20px;
+            padding: 25px;
             text-align: center;
-            transition: all 0.3s ease;
+            transition: 0.3s;
             position: relative;
         }
 
-        .silo-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
+        .silo-card:hover { border-color: var(--accent); transform: translateY(-5px); }
 
-        /* Gráfica Circular */
-        .gauge-box {
-            position: relative;
+        /* Círculo Principal */
+        .gauge-container {
             width: 180px;
             height: 180px;
-            margin: 0 auto 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .outer-ring {
-            width: 100%;
-            height: 100%;
+            margin: 0 auto 20px;
             border-radius: 50%;
             background: conic-gradient(var(--safe) 0deg, #1e293b 0deg);
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .inner-ring {
+        .inner-circle {
             width: 140px;
             height: 140px;
             background: var(--bg);
@@ -94,165 +86,219 @@
             box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
         }
 
-        .value { font-size: 38px; font-weight: 800; line-height: 1; }
+        .value { font-size: 42px; font-weight: 800; }
         .unit { font-size: 14px; opacity: 0.5; margin-top: 5px; }
-        .percent-tag {
-            font-size: 12px;
-            background: rgba(255,255,255,0.1);
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-top: 8px;
+
+        /* Botón de Historial */
+        .btn-history {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid var(--accent);
             color: var(--accent);
-        }
-
-        .silo-name {
-            font-size: 18px;
-            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
             letter-spacing: 1px;
-            color: #94a3b8;
-            border-top: 1px solid var(--border);
-            padding-top: 15px;
+            transition: 0.3s;
         }
 
-        /* Ticks de nivel (Marcadores visuales) */
-        .ticks {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 4px dashed rgba(255,255,255,0.05);
-            pointer-events: none;
+        .btn-history:hover {
+            background: var(--accent);
+            color: var(--bg);
+            box-shadow: 0 0 15px var(--accent);
         }
+
+        /* Ventana Modal (Historial) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.9);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            width: 90%;
+            max-width: 800px;
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid var(--accent);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 20px;
+            font-size: 30px; cursor: pointer; color: var(--danger);
+        }
+
+        canvas { width: 100% !important; height: 350px !important; }
 
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            50% { box-shadow: 0 0 30px var(--danger); border-color: var(--danger); }
         }
-
-        .danger-mode { animation: pulse 1.5s infinite; border-color: var(--danger) !important; }
+        .critical { animation: pulse 1.5s infinite; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>PANEL DE CONTROL DE SILOS</h1>
-</div>
+<header>
+    <h1>MONITOREO DE SILOS ESP32</h1>
+</header>
 
 <div class="grid">
-    <div class="silo-card" id="card-silos/esp32/reading1">
-        <div class="gauge-box">
-            <div class="ticks"></div>
-            <div class="outer-ring" id="ring-1">
-                <div class="inner-ring">
-                    <div class="value" id="val-1">0</div>
-                    <div class="unit">TONELADAS</div>
-                    <div class="percent-tag" id="perc-1">0%</div>
-                </div>
+    <div class="silo-card" id="card-1">
+        <div class="gauge-container" id="ring-1">
+            <div class="inner-circle">
+                <div class="value" id="val-1">0</div>
+                <div class="unit">TONELADAS</div>
             </div>
         </div>
-        <div class="silo-name">SILO A (75 TN)</div>
+        <div style="font-weight:bold; color:var(--accent)">SILO A</div>
+        <button class="btn-history" onclick="showHistory('silos/esp32/reading1')">VER HISTORIAL</button>
     </div>
 
-    <div class="silo-card" id="card-silos/esp32/reading2">
-        <div class="gauge-box">
-            <div class="ticks"></div>
-            <div class="outer-ring" id="ring-2">
-                <div class="inner-ring">
-                    <div class="value" id="val-2">0</div>
-                    <div class="unit">TONELADAS</div>
-                    <div class="percent-tag" id="perc-2">0%</div>
-                </div>
+    <div class="silo-card" id="card-2">
+        <div class="gauge-container" id="ring-2">
+            <div class="inner-circle">
+                <div class="value" id="val-2">0</div>
+                <div class="unit">TONELADAS</div>
             </div>
         </div>
-        <div class="silo-name">SILO B (45 TN)</div>
+        <div style="font-weight:bold; color:var(--accent)">SILO B</div>
+        <button class="btn-history" onclick="showHistory('silos/esp32/reading2')">VER HISTORIAL</button>
     </div>
 
-    <div class="silo-card" id="card-silos/esp32/reading3">
-        <div class="gauge-box">
-            <div class="ticks"></div>
-            <div class="outer-ring" id="ring-3">
-                <div class="inner-ring">
-                    <div class="value" id="val-3">0</div>
-                    <div class="unit">TONELADAS</div>
-                    <div class="percent-tag" id="perc-3">0%</div>
-                </div>
+    <div class="silo-card" id="card-3">
+        <div class="gauge-container" id="ring-3">
+            <div class="inner-circle">
+                <div class="value" id="val-3">0</div>
+                <div class="unit">TONELADAS</div>
             </div>
         </div>
-        <div class="silo-name">SILO C (75 TN)</div>
+        <div style="font-weight:bold; color:var(--accent)">SILO C</div>
+        <button class="btn-history" onclick="showHistory('silos/esp32/reading3')">VER HISTORIAL</button>
     </div>
 
-    <div class="silo-card" id="card-silos/esp32/reading4">
-        <div class="gauge-box">
-            <div class="ticks"></div>
-            <div class="outer-ring" id="ring-4">
-                <div class="inner-ring">
-                    <div class="value" id="val-4">0</div>
-                    <div class="unit">TONELADAS</div>
-                    <div class="percent-tag" id="perc-4">0%</div>
-                </div>
+    <div class="silo-card" id="card-4">
+        <div class="gauge-container" id="ring-4">
+            <div class="inner-circle">
+                <div class="value" id="val-4">0</div>
+                <div class="unit">TONELADAS</div>
             </div>
         </div>
-        <div class="silo-name">SILO D (45 TN)</div>
+        <div style="font-weight:bold; color:var(--accent)">SILO D</div>
+        <button class="btn-history" onclick="showHistory('silos/esp32/reading4')">VER HISTORIAL</button>
+    </div>
+</div>
+
+<div id="historyModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h2 id="modalTitle" style="color:var(--accent); margin-top:0;">Historial Silo</h2>
+        <canvas id="historyChart"></canvas>
     </div>
 </div>
 
 <script>
-    // Configuración mapeada exactamente a tus tópicos y capacidades
-    const SILO_MAP = {
-        "silos/esp32/reading1": { ring: "ring-1", val: "val-1", perc: "perc-1", max: 75 },
-        "silos/esp32/reading2": { ring: "ring-2", val: "val-2", perc: "perc-2", max: 45 },
-        "silos/esp32/reading3": { ring: "ring-3", val: "val-3", perc: "perc-3", max: 75 },
-        "silos/esp32/reading4": { ring: "ring-4", val: "val-4", perc: "perc-4", max: 45 }
+    // Configuración técnica
+    const CONFIG = {
+        "silos/esp32/reading1": { ring: "ring-1", val: "val-1", max: 75, name: "SILO A", data: [] },
+        "silos/esp32/reading2": { ring: "ring-2", val: "val-2", max: 45, name: "SILO B", data: [] },
+        "silos/esp32/reading3": { ring: "ring-3", val: "val-3", max: 75, name: "SILO C", data: [] },
+        "silos/esp32/reading4": { ring: "ring-4", val: "val-4", max: 45, name: "SILO D", data: [] }
     };
 
-    // Conexión MQTT (Usando el broker que ya tienes configurado)
+    let chartInstance = null; // Guardará la gráfica del modal
+
+    // Conexión MQTT
     const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
     client.on("connect", () => {
-        console.log("✅ Sistema de Monitoreo Online");
-        // Suscribirse a todos los tópicos definidos
-        Object.keys(SILO_MAP).forEach(topic => client.subscribe(topic));
+        Object.keys(CONFIG).forEach(t => client.subscribe(t));
+        console.log("Conectado al sistema de silos");
     });
 
-    client.on("message", (topic, message) => {
-        const rawValue = parseFloat(message.toString());
-        if (!isNaN(rawValue)) {
-            updateDashboard(topic, rawValue);
-        }
+    client.on("message", (topic, msg) => {
+        const value = parseFloat(msg.toString());
+        if (!isNaN(value)) updateUI(topic, value);
     });
 
-    function updateDashboard(topic, value) {
-        const config = SILO_MAP[topic];
-        if (!config) return;
+    function updateUI(topic, val) {
+        const s = CONFIG[topic];
+        const perc = (val / s.max) * 100;
+        const deg = Math.min(perc, 100) * 3.6;
 
-        // Cálculos de porcentaje
-        const clampedValue = Math.max(0, Math.min(value, config.max));
-        const percentage = (clampedValue / config.max) * 100;
-        const degrees = percentage * 3.6;
+        // Guardar en el historial (máximo 50 puntos)
+        s.data.push({ x: new Date().toLocaleTimeString(), y: val });
+        if (s.data.length > 50) s.data.shift();
 
-        // Lógica de colores dinámica
+        // Colores y Alertas
         let color = "var(--safe)";
-        const card = document.getElementById(`card-${topic}`);
-        
-        if (percentage < 20) {
+        if (perc < 20) {
             color = "var(--danger)";
-            card.classList.add('danger-mode');
-        } else if (percentage < 50) {
+            document.getElementById(s.ring).parentElement.classList.add('critical');
+        } else if (perc < 50) {
             color = "var(--warning)";
-            card.classList.remove('danger-mode');
+            document.getElementById(s.ring).parentElement.classList.remove('critical');
         } else {
-            color = "var(--safe)";
-            card.classList.remove('danger-mode');
+            document.getElementById(s.ring).parentElement.classList.remove('critical');
         }
 
-        // Actualizar UI
-        const ring = document.getElementById(config.ring);
-        ring.style.background = `conic-gradient(${color} ${degrees}deg, #1e293b ${degrees}deg)`;
+        // Aplicar a la gráfica circular
+        const ring = document.getElementById(s.ring);
+        ring.style.background = `conic-gradient(${color} ${deg}deg, #1e293b ${deg}deg)`;
+        document.getElementById(s.val).innerText = val.toFixed(1);
+    }
+
+    // Funciones del Modal e Historial
+    function showHistory(topic) {
+        const s = CONFIG[topic];
+        document.getElementById('historyModal').style.display = 'flex';
+        document.getElementById('modalTitle').innerText = `HISTORIAL DE CARGA: ${s.name}`;
+
+        const ctx = document.getElementById('historyChart').getContext('2d');
         
-        document.getElementById(config.val).innerText = clampedValue.toFixed(1);
-        document.getElementById(config.perc).innerText = Math.round(percentage) + "%";
+        if (chartInstance) chartInstance.destroy(); // Limpiar gráfica anterior
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: s.data.map(d => d.x),
+                datasets: [{
+                    label: 'Nivel (Toneladas)',
+                    data: s.data.map(d => d.y),
+                    borderColor: '#00f0ff',
+                    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, max: s.max, grid: { color: '#1e293b' } },
+                    x: { grid: { color: '#1e293b' } }
+                }
+            }
+        });
+    }
+
+    function closeModal() {
+        document.getElementById('historyModal').style.display = 'none';
+    }
+
+    // Cerrar modal si se hace clic fuera de él
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('historyModal')) closeModal();
     }
 </script>
+
 </body>
 </html>
