@@ -2,66 +2,78 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Silos</title>
+<title>Panel de Control - Silos</title>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
 body {
-    background: #0f172a;
-    color: white;
-    font-family: Arial;
-    text-align: center;
+    margin: 0;
+    font-family: 'Segoe UI', Arial;
+    background: #020617;
+    color: #e2e8f0;
 }
 
+/* 🔝 HEADER */
+.header {
+    background: #020617;
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    border-bottom: 2px solid #1e293b;
+    letter-spacing: 1px;
+}
+
+/* 📊 GRID */
 .container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 20px;
+    gap: 25px;
     padding: 20px;
 }
 
+/* 🧱 TARJETA */
 .silo {
-    background: #1e293b;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
     padding: 15px;
-    border-radius: 15px;
+    text-align: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
 }
 
-/* 🔥 SEMI CÍRCULO */
-.gauge {
-    width: 140px;
-    height: 70px;
-    margin: auto;
+/* 🏷️ TITULO SILO */
+.silo h3 {
+    margin: 5px;
+    font-size: 16px;
+}
+
+/* 🛢️ TANQUE */
+.tanque {
+    width: 70px;
+    height: 180px;
+    margin: 15px auto;
+    border: 2px solid #334155;
+    border-radius: 10px;
     position: relative;
+    background: #020617;
     overflow: hidden;
 }
 
-.gauge-fill {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: conic-gradient(red 0deg, #0f172a 0deg);
+/* 🔥 NIVEL (LLENA DESDE ABAJO) */
+.nivel {
+    width: 100%;
     position: absolute;
-    top: 0;
-    left: 0;
+    bottom: 0;
+    height: 0%;
+    background: red;
+    transition: all 0.5s ease;
 }
 
-.gauge-cover {
-    width: 120px;
-    height: 60px;
-    background: #1e293b;
-    border-radius: 60px 60px 0 0;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
+/* 🔢 VALOR */
 .valor {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: bold;
 }
 
@@ -74,52 +86,46 @@ body {
 
 <body>
 
-<h2>📊 Silos en Toneladas</h2>
+<div class="header">
+    NIVELES DE SILOS
+</div>
 
 <div class="container">
 
     <div class="silo">
-        <h3>Nivel 1</h3>
-        <div class="gauge">
-            <div class="gauge-fill" id="c1"></div>
-            <div class="gauge-cover">
-                <div class="valor" id="v1">0</div>
-                <div class="unidad">tn</div>
-            </div>
+        <h3>SILO A</h3>
+        <div class="tanque">
+            <div class="nivel" id="n1"></div>
         </div>
+        <div class="valor" id="v1">0</div>
+        <div class="unidad">toneladas</div>
     </div>
 
     <div class="silo">
-        <h3>Nivel 2</h3>
-        <div class="gauge">
-            <div class="gauge-fill" id="c2"></div>
-            <div class="gauge-cover">
-                <div class="valor" id="v2">0</div>
-                <div class="unidad">tn</div>
-            </div>
+        <h3>SILO B</h3>
+        <div class="tanque">
+            <div class="nivel" id="n2"></div>
         </div>
+        <div class="valor" id="v2">0</div>
+        <div class="unidad">toneladas</div>
     </div>
 
     <div class="silo">
-        <h3>Nivel 3</h3>
-        <div class="gauge">
-            <div class="gauge-fill" id="c3"></div>
-            <div class="gauge-cover">
-                <div class="valor" id="v3">0</div>
-                <div class="unidad">tn</div>
-            </div>
+        <h3>SILO C</h3>
+        <div class="tanque">
+            <div class="nivel" id="n3"></div>
         </div>
+        <div class="valor" id="v3">0</div>
+        <div class="unidad">toneladas</div>
     </div>
 
     <div class="silo">
-        <h3>Nivel 4</h3>
-        <div class="gauge">
-            <div class="gauge-fill" id="c4"></div>
-            <div class="gauge-cover">
-                <div class="valor" id="v4">0</div>
-                <div class="unidad">tn</div>
-            </div>
+        <h3>SILO D</h3>
+        <div class="tanque">
+            <div class="nivel" id="n4"></div>
         </div>
+        <div class="valor" id="v4">0</div>
+        <div class="unidad">toneladas</div>
     </div>
 
 </div>
@@ -143,36 +149,50 @@ client.on("message", (topic, message) => {
     actualizar(topic, valor);
 });
 
-// 🎯 ACTUALIZACIÓN
+// 🎯 ACTUALIZAR TANQUE
 function actualizar(topic, valor) {
 
-    // 🔧 AJUSTÁ ESTO A TU SILO REAL
-    let maxTon = 100;
+    let maxTon = 100; // 🔧 AJUSTAR A TU SILO REAL
 
-    let porcentaje = (valor / maxTon) * 180; // 180° semicirculo
+    let porcentaje = (valor / maxTon) * 100;
 
     let id = "";
     let vid = "";
 
-    if (topic === "silos/esp32/reading1") { id="c1"; vid="v1"; }
-    if (topic === "silos/esp32/reading2") { id="c2"; vid="v2"; }
-    if (topic === "silos/esp32/reading3") { id="c3"; vid="v3"; }
-    if (topic === "silos/esp32/reading4") { id="c4"; vid="v4"; }
+    if (topic === "silos/esp32/reading1") { id="n1"; vid="v1"; }
+    if (topic === "silos/esp32/reading2") { id="n2"; vid="v2"; }
+    if (topic === "silos/esp32/reading3") { id="n3"; vid="v3"; }
+    if (topic === "silos/esp32/reading4") { id="n4"; vid="v4"; }
 
-    // 🎨 COLOR DINÁMICO
-    let color = "red";
+    // 🎨 COLORES INDUSTRIALES
+    let color = "#22c55e"; // verde
 
-    if (valor >= 20) {
-        color = "#22c55e"; // verde
-    }
+    if (valor < 40) color = "#facc15"; // amarillo
+    if (valor < 20) color = "#ef4444"; // rojo
 
-    // 🔵 ACTUALIZAR GRÁFICO
-    document.getElementById(id).style.background =
-        `conic-gradient(${color} ${porcentaje}deg, #0f172a ${porcentaje}deg)`;
+    // 📊 NIVEL DESDE ABAJO
+    const nivel = document.getElementById(id);
+    nivel.style.height = porcentaje + "%";
+    nivel.style.background = color;
 
-    // 🔢 ACTUALIZAR TEXTO
+    // 🔢 TEXTO
     document.getElementById(vid).innerText = Math.round(valor);
+
+    // 🔴 PARPADEO CRÍTICO
+    if (valor < 20) {
+        nivel.style.animation = "blink 1s infinite";
+    } else {
+        nivel.style.animation = "none";
+    }
 }
+
+// 🔴 ANIMACIÓN
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes blink {
+    50% { opacity: 0.3; }
+}`;
+document.head.appendChild(style);
 
 </script>
 
