@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Silo HUD - Interface Zero</title>
-    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitor de Silos - Interfaz Cero</title>
+
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -12,27 +12,33 @@
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
 
         :root {
-            --bg: #02040a;
-            --accent: #00f0ff;
-            --safe: #00ff9d;
-            --warning: #ffcc00;
-            --danger: #ff0055;
-            --panel-bg: rgba(10, 20, 30, 0.4);
+            --fondo: #02040a;
+            --acento: #00f0ff;
+            --seguro: #00ff9d;
+            --advertencia: #ffcc00;
+            --peligro: #ff0055;
+            --fondo-panel: rgba(10, 20, 30, 0.4);
+            --texto: #ffffff;
+            --rejilla: rgba(0, 240, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            background-color: var(--bg);
-            background-image: 
-                linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
-            background-size: 50px 50px; /* Rejilla de fondo futurista */
-            color: #fff;
-            font-family: 'Rajdhani', sans-serif;
             margin: 0;
             overflow-x: hidden;
+            color: var(--texto);
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--fondo);
+            background-image:
+                linear-gradient(var(--rejilla) 1px, transparent 1px),
+                linear-gradient(90deg, var(--rejilla) 1px, transparent 1px);
+            background-size: 50px 50px;
         }
 
-        header {
+        .encabezado {
             padding: 30px;
             text-align: center;
             border-bottom: 1px solid rgba(0, 240, 255, 0.3);
@@ -40,269 +46,445 @@
             backdrop-filter: blur(5px);
         }
 
-        header h1 {
+        .encabezado h1 {
+            margin: 0;
+            color: var(--acento);
             font-family: 'Orbitron', sans-serif;
             letter-spacing: 8px;
-            margin: 0;
-            color: var(--accent);
-            text-shadow: 0 0 15px var(--accent);
+            text-shadow: 0 0 15px var(--acento);
         }
 
-        .grid {
+        .rejilla-principal {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 40px;
-            padding: 60px;
             max-width: 1400px;
             margin: 0 auto;
+            padding: 60px;
         }
 
-        /* --- EL SILO FUTURISTA --- */
-        .silo-container {
+        .tarjeta-silo {
             position: relative;
-            background: var(--panel-bg);
-            border-left: 4px solid rgba(0, 240, 255, 0.1);
             padding: 30px;
-            border-radius: 0 20px 0 20px;
-            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-            opacity: 0.4; /* Apagado por defecto */
-            filter: grayscale(0.8) blur(1px);
             cursor: pointer;
+            opacity: 0.4;
+            border-left: 4px solid rgba(0, 240, 255, 0.1);
+            border-radius: 0 20px 0 20px;
+            background: var(--fondo-panel);
+            filter: grayscale(0.8) blur(1px);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .silo-container:hover {
+        .tarjeta-silo:hover {
             opacity: 1;
-            filter: grayscale(0) blur(0px);
-            background: rgba(0, 240, 255, 0.05);
-            border-left-color: var(--accent);
-            box-shadow: -10px 0 30px rgba(0, 240, 255, 0.1);
             transform: scale(1.02);
+            background: rgba(0, 240, 255, 0.05);
+            border-left-color: var(--acento);
+            filter: grayscale(0) blur(0);
+            box-shadow: -10px 0 30px rgba(0, 240, 255, 0.1);
         }
 
-        /* Marcador de nivel (Anillo) */
-        .gauge-wrapper {
+        .contenedor-medidor {
             position: relative;
             width: 200px;
             height: 200px;
             margin: 0 auto;
         }
 
-        .scan-ring {
+        .anillo-escaneo {
             position: absolute;
-            top: -5px; left: -5px; right: -5px; bottom: -5px;
-            border: 2px solid transparent;
-            border-top: 2px solid var(--accent);
-            border-radius: 50%;
-            animation: spin 3s linear infinite;
+            top: -5px;
+            right: -5px;
+            bottom: -5px;
+            left: -5px;
             opacity: 0;
+            border: 2px solid transparent;
+            border-top: 2px solid var(--acento);
+            border-radius: 50%;
+            animation: girar 3s linear infinite;
             transition: 0.5s;
         }
 
-        .silo-container:hover .scan-ring { opacity: 0.5; }
+        .tarjeta-silo:hover .anillo-escaneo {
+            opacity: 0.5;
+        }
 
-        .main-ring {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: conic-gradient(var(--safe) 0deg, rgba(255,255,255,0.05) 0deg);
+        .anillo-principal {
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(var(--seguro) 0deg, rgba(255,255,255,0.05) 0deg);
             mask-image: radial-gradient(transparent 65%, black 66%);
             -webkit-mask-image: radial-gradient(transparent 65%, black 66%);
             transition: 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .data-display {
+        .pantalla-datos {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            top: 50%;
+            left: 50%;
             text-align: center;
+            transform: translate(-50%, -50%);
         }
 
-        .val-num { font-size: 48px; font-weight: 700; font-family: 'Orbitron'; line-height: 1; }
-        .val-unit { font-size: 14px; letter-spacing: 2px; opacity: 0.7; }
+        .valor-numerico {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1;
+            font-family: 'Orbitron', sans-serif;
+        }
 
-        .silo-info {
+        .valor-unidad {
+            font-size: 14px;
+            letter-spacing: 2px;
+            opacity: 0.7;
+        }
+
+        .info-silo {
             margin-top: 25px;
             text-transform: uppercase;
         }
 
-        .silo-info h3 { margin: 0; font-size: 22px; letter-spacing: 4px; color: var(--accent); }
-        
-        /* Botones que aparecen progresivamente */
-        .btn-history {
+        .info-silo h3 {
+            margin: 0;
+            color: var(--acento);
+            font-size: 22px;
+            letter-spacing: 4px;
+        }
+
+        .capacidad-silo {
+            margin-top: 5px;
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .boton-historial {
             margin-top: 20px;
-            background: transparent;
-            border: 1px solid var(--accent);
-            color: var(--accent);
             padding: 8px 25px;
-            font-family: 'Orbitron';
+            opacity: 0;
+            color: var(--acento);
             font-size: 10px;
             cursor: pointer;
-            opacity: 0;
+            background: transparent;
+            border: 1px solid var(--acento);
+            font-family: 'Orbitron', sans-serif;
             transform: translateY(10px);
             transition: 0.4s ease;
         }
 
-        .silo-container:hover .btn-history {
+        .tarjeta-silo:hover .boton-historial {
             opacity: 1;
             transform: translateY(0);
         }
 
-        .btn-history:hover {
-            background: var(--accent);
+        .boton-historial:hover {
             color: #000;
-            box-shadow: 0 0 20px var(--accent);
+            background: var(--acento);
+            box-shadow: 0 0 20px var(--acento);
         }
 
-        /* --- MODAL Y OTROS --- */
         .modal {
-            display: none; position: fixed; z-index: 2000;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); justify-content: center; align-items: center;
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.95);
         }
-        .modal-content { width: 80%; max-width: 900px; background: #0a0f1a; padding: 40px; border: 1px solid var(--accent); }
 
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        /* Estado Crítico */
-        .critical-glow {
-            animation: danger-pulse 1s infinite alternate;
+        .modal.activo {
+            display: flex;
         }
-        @keyframes danger-pulse {
-            from { box-shadow: inset 0 0 10px var(--danger); }
-            to { box-shadow: inset 0 0 40px var(--danger); border-color: var(--danger); }
+
+        .contenido-modal {
+            width: 80%;
+            max-width: 900px;
+            padding: 40px;
+            background: #0a0f1a;
+            border: 1px solid var(--acento);
+        }
+
+        .titulo-modal {
+            color: var(--acento);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .estado-critico {
+            animation: pulso-peligro 1s infinite alternate;
+        }
+
+        @keyframes girar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulso-peligro {
+            from { box-shadow: inset 0 0 10px var(--peligro); }
+            to {
+                box-shadow: inset 0 0 40px var(--peligro);
+                border-color: var(--peligro);
+            }
         }
     </style>
 </head>
 <body>
+    <header class="encabezado">
+        <h1>MONITOREO DE SILOS PLANTA MAIPÚ</h1>
+    </header>
 
-<header>
-    <h1>SYSTEM CORE: SILO MONITOR</h1>
-</header>
+    <main class="rejilla-principal" id="rejillaPrincipal"></main>
 
-<div class="grid" id="mainGrid">
+    <div id="modalHistorial" class="modal" aria-hidden="true">
+        <div class="contenido-modal">
+            <h2 id="tituloModal" class="titulo-modal">REGISTRO DE DATOS</h2>
+            <canvas id="graficoHistorial"></canvas>
+            <button
+                type="button"
+                class="boton-historial"
+                style="opacity:1; transform:none; margin-top:30px;"
+                onclick="cerrarModal()"
+            >
+                CERRAR CANAL CIFRADO
+            </button>
+        </div>
     </div>
 
-<div id="historyModal" class="modal">
-    <div class="modal-content">
-        <h2 id="modalTitle" style="font-family:'Orbitron'; color:var(--accent)">DATA LOG</h2>
-        <canvas id="historyChart"></canvas>
-        <button class="btn-history" onclick="closeModal()" style="opacity:1; transform:none; margin-top:30px;">CLOSE ENCRYPTED CHANNEL</button>
-    </div>
-</div>
+    <script>
+        const CONFIGURACION_SILOS = {
+            "silos/esp32/reading1": {
+                nombre: "SILO A",
+                capacidadMaxima: 75,
+                historial: []
+            },
+            "silos/esp32/reading2": {
+                nombre: "SILO B",
+                capacidadMaxima: 45,
+                historial: []
+            },
+            "silos/esp32/reading3": {
+                nombre: "SILO C",
+                capacidadMaxima: 75,
+                historial: []
+            },
+            "silos/esp32/reading4": {
+                nombre: "SILO D",
+                capacidadMaxima: 45,
+                historial: []
+            }
+        };
 
-<script>
-    const CONFIG = {
-        "silos/esp32/reading1": { name: "SILO ALPHA", max: 75, data: [] },
-        "silos/esp32/reading2": { name: "SILO BETA", max: 45, data: [] },
-        "silos/esp32/reading3": { name: "SILO GAMMA", max: 75, data: [] },
-        "silos/esp32/reading4": { name: "SILO DELTA", max: 45, data: [] }
-    };
+        const URL_BROKER_MQTT = "wss://broker.emqx.io:8084/mqtt";
+        const LIMITE_HISTORIAL = 30;
 
-    const grid = document.getElementById('mainGrid');
-    let chartInstance = null;
+        const rejillaPrincipal = document.getElementById("rejillaPrincipal");
+        const modalHistorial = document.getElementById("modalHistorial");
+        const tituloModal = document.getElementById("tituloModal");
+        const canvasGrafico = document.getElementById("graficoHistorial");
 
-    // Generar Silos dinámicamente
-    Object.keys(CONFIG).forEach((topic, i) => {
-        const s = CONFIG[topic];
-        const div = document.createElement('div');
-        div.className = 'silo-container';
-        div.id = `card-${i}`;
-        div.innerHTML = `
-            <div class="gauge-wrapper">
-                <div class="scan-ring"></div>
-                <div class="main-ring" id="ring-${i}"></div>
-                <div class="data-display">
-                    <div class="val-num" id="val-${i}">0</div>
-                    <div class="val-unit">TONS</div>
-                </div>
-            </div>
-            <div class="silo-info">
-                <h3>${s.name}</h3>
-                <div style="opacity:0.5; font-size:12px; margin-top:5px;">CAPACITY: ${s.max} TN</div>
-                <button class="btn-history" onclick="showHistory('${topic}')">ACCESS HISTORY</button>
-            </div>
-        `;
-        grid.appendChild(div);
-    });
+        let instanciaGrafico = null;
 
-    // MQTT
-    const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
-    client.on("connect", () => {
-        Object.keys(CONFIG).forEach(t => client.subscribe(t));
-        console.log("HUD Online");
-    });
+        function crearTarjetasDeSilos() {
+            const topicos = Object.keys(CONFIGURACION_SILOS);
 
-    client.on("message", (topic, msg) => {
-        const val = parseFloat(msg.toString());
-        if (!isNaN(val)) updateHUD(topic, val);
-    });
+            topicos.forEach((topico, indice) => {
+                const silo = CONFIGURACION_SILOS[topico];
+                const tarjeta = document.createElement("div");
 
-    function updateHUD(topic, val) {
-        const keys = Object.keys(CONFIG);
-        const i = keys.indexOf(topic);
-        const s = CONFIG[topic];
-        
-        const perc = (val / s.max) * 100;
-        const deg = Math.min(perc, 100) * 3.6;
+                tarjeta.className = "tarjeta-silo";
+                tarjeta.id = `tarjeta-${indice}`;
 
-        // Historial
-        s.data.push({ x: new Date().toLocaleTimeString(), y: val });
-        if (s.data.length > 30) s.data.shift();
+                tarjeta.innerHTML = `
+                    <div class="contenedor-medidor">
+                        <div class="anillo-escaneo"></div>
+                        <div class="anillo-principal" id="anillo-${indice}"></div>
+                        <div class="pantalla-datos">
+                            <div class="valor-numerico" id="valor-${indice}">0</div>
+                            <div class="valor-unidad">TONELADAS</div>
+                        </div>
+                    </div>
 
-        // Color según nivel
-        let color = "var(--safe)";
-        const card = document.getElementById(`card-${i}`);
-        
-        if (perc < 20) {
-            color = "var(--danger)";
-            card.classList.add('critical-glow');
-        } else if (perc < 50) {
-            color = "var(--warning)";
-            card.classList.remove('critical-glow');
-        } else {
-            card.classList.remove('critical-glow');
+                    <div class="info-silo">
+                        <h3>${silo.nombre}</h3>
+                        <div class="capacidad-silo">CAPACIDAD: ${silo.capacidadMaxima} TN</div>
+                        <button
+                            type="button"
+                            class="boton-historial"
+                            onclick="mostrarHistorial('${topico}')"
+                        >
+                            VER HISTORIAL
+                        </button>
+                    </div>
+                `;
+
+                rejillaPrincipal.appendChild(tarjeta);
+            });
         }
 
-        document.getElementById(`ring-${i}`).style.background = `conic-gradient(${color} ${deg}deg, rgba(255,255,255,0.05) ${deg}deg)`;
-        document.getElementById(`val-${i}`).innerText = Math.round(val);
-        document.getElementById(`val-${i}`).style.color = color;
-    }
+        function conectarMQTT() {
+            const cliente = mqtt.connect(URL_BROKER_MQTT);
 
-    function showHistory(topic) {
-        const s = CONFIG[topic];
-        document.getElementById('historyModal').style.display = 'flex';
-        const ctx = document.getElementById('historyChart').getContext('2d');
-        
-        if (chartInstance) chartInstance.destroy();
+            cliente.on("connect", () => {
+                Object.keys(CONFIGURACION_SILOS).forEach((topico) => {
+                    cliente.subscribe(topico);
+                });
+                console.log("Monitor conectado al broker MQTT");
+            });
 
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: s.data.map(d => d.x),
-                datasets: [{
-                    label: s.name,
-                    data: s.data.map(d => d.y),
-                    borderColor: '#00f0ff',
-                    backgroundColor: 'rgba(0, 240, 255, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: { beginAtZero: true, max: s.max, grid: { color: 'rgba(255,255,255,0.1)' } },
-                    x: { grid: { display: false } }
+            cliente.on("message", (topico, mensaje) => {
+                const valor = parseFloat(mensaje.toString());
+
+                if (!isNaN(valor) && CONFIGURACION_SILOS[topico]) {
+                    actualizarInterfaz(topico, valor);
+                }
+            });
+
+            cliente.on("error", (error) => {
+                console.error("Error de conexión MQTT:", error);
+            });
+        }
+
+        function obtenerColorPorNivel(porcentaje) {
+            if (porcentaje < 20) return "var(--peligro)";
+            if (porcentaje < 50) return "var(--advertencia)";
+            return "var(--seguro)";
+        }
+
+        function actualizarInterfaz(topico, valor) {
+            const topicos = Object.keys(CONFIGURACION_SILOS);
+            const indice = topicos.indexOf(topico);
+            const silo = CONFIGURACION_SILOS[topico];
+
+            if (indice === -1) return;
+
+            const porcentaje = (valor / silo.capacidadMaxima) * 100;
+            const grados = Math.min(porcentaje, 100) * 3.6;
+            const colorNivel = obtenerColorPorNivel(porcentaje);
+
+            registrarHistorial(silo, valor);
+            actualizarTarjetaVisual(indice, valor, porcentaje, grados, colorNivel);
+        }
+
+        function registrarHistorial(silo, valor) {
+            silo.historial.push({
+                hora: new Date().toLocaleTimeString("es-AR"),
+                valor: valor
+            });
+
+            if (silo.historial.length > LIMITE_HISTORIAL) {
+                silo.historial.shift();
+            }
+        }
+
+        function actualizarTarjetaVisual(indice, valor, porcentaje, grados, colorNivel) {
+            const tarjeta = document.getElementById(`tarjeta-${indice}`);
+            const anillo = document.getElementById(`anillo-${indice}`);
+            const valorElemento = document.getElementById(`valor-${indice}`);
+
+            anillo.style.background = `
+                conic-gradient(
+                    ${colorNivel} ${grados}deg,
+                    rgba(255,255,255,0.05) ${grados}deg
+                )
+            `;
+
+            valorElemento.textContent = Math.round(valor);
+            valorElemento.style.color = colorNivel;
+
+            if (porcentaje < 20) {
+                tarjeta.classList.add("estado-critico");
+            } else {
+                tarjeta.classList.remove("estado-critico");
+            }
+        }
+
+        function mostrarHistorial(topico) {
+            const silo = CONFIGURACION_SILOS[topico];
+            if (!silo) return;
+
+            tituloModal.textContent = `REGISTRO DE DATOS - ${silo.nombre}`;
+            modalHistorial.classList.add("activo");
+            modalHistorial.setAttribute("aria-hidden", "false");
+
+            const contexto = canvasGrafico.getContext("2d");
+
+            if (instanciaGrafico) {
+                instanciaGrafico.destroy();
+            }
+
+            instanciaGrafico = new Chart(contexto, {
+                type: "line",
+                data: {
+                    labels: silo.historial.map((dato) => dato.hora),
+                    datasets: [
+                        {
+                            label: silo.nombre,
+                            data: silo.historial.map((dato) => dato.valor),
+                            borderColor: "#00f0ff",
+                            backgroundColor: "rgba(0, 240, 255, 0.1)",
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
                 },
-                plugins: { legend: { labels: { color: '#00f0ff', font: { family: 'Orbitron' } } } }
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: silo.capacidadMaxima,
+                            grid: {
+                                color: "rgba(255,255,255,0.1)"
+                            },
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#00f0ff",
+                                font: {
+                                    family: "Orbitron"
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function cerrarModal() {
+            modalHistorial.classList.remove("activo");
+            modalHistorial.setAttribute("aria-hidden", "true");
+        }
+
+        modalHistorial.addEventListener("click", (evento) => {
+            if (evento.target === modalHistorial) {
+                cerrarModal();
             }
         });
-    }
 
-    function closeModal() { document.getElementById('historyModal').style.display = 'none'; }
-</script>
+        document.addEventListener("keydown", (evento) => {
+            if (evento.key === "Escape") {
+                cerrarModal();
+            }
+        });
+
+        crearTarjetasDeSilos();
+        conectarMQTT();
+    </script>
 </body>
 </html>
