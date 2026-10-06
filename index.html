@@ -256,23 +256,53 @@
     <script>
         const CONFIGURACION_SILOS = {
             "silos/esp32/reading1": {
+                planta: "MAIPÚ",
                 nombre: "SILO A",
                 capacidadMaxima: 75,
                 historial: []
             },
             "silos/esp32/reading2": {
+                planta: "MAIPÚ",
                 nombre: "SILO B",
                 capacidadMaxima: 45,
                 historial: []
             },
             "silos/esp32/reading3": {
+                planta: "MAIPÚ",
                 nombre: "SILO C",
                 capacidadMaxima: 75,
                 historial: []
             },
             "silos/esp32/reading4": {
+                planta: "MAIPÚ",
                 nombre: "SILO D",
                 capacidadMaxima: 45,
+                historial: []
+            },
+
+            "lujan/silos/reading1": {
+                planta: "LUJÁN",
+                nombre: "SILO A",
+                capacidadMaxima: 75,
+                historial: []
+            },
+            "lujan/silos/reading2": {
+                planta: "LUJÁN",
+                nombre: "SILO B",
+                capacidadMaxima: 75,
+                historial: []
+            },
+
+            "sanmartin/silos/reading1": {
+                planta: "SAN MARTÍN",
+                nombre: "SILO A",
+                capacidadMaxima: 75,
+                historial: []
+            },
+            "sanmartin/silos/reading2": {
+                planta: "SAN MARTÍN",
+                nombre: "SILO B",
+                capacidadMaxima: 75,
                 historial: []
             }
         };
@@ -289,38 +319,56 @@
 
         function crearTarjetasDeSilos() {
             const topicos = Object.keys(CONFIGURACION_SILOS);
+            const plantas = ["MAIPÚ", "LUJÁN", "SAN MARTÍN"];
 
-            topicos.forEach((topico, indice) => {
-                const silo = CONFIGURACION_SILOS[topico];
-                const tarjeta = document.createElement("div");
+            plantas.forEach((planta) => {
+                const seccion = document.createElement("section");
+                seccion.className = "seccion-planta";
 
-                tarjeta.className = "tarjeta-silo";
-                tarjeta.id = `tarjeta-${indice}`;
+                const titulo = document.createElement("h2");
+                titulo.className = "titulo-planta";
+                titulo.textContent = `PLANTA ${planta}`;
 
-                tarjeta.innerHTML = `
-                    <div class="contenedor-medidor">
-                        <div class="anillo-escaneo"></div>
-                        <div class="anillo-principal" id="anillo-${indice}"></div>
-                        <div class="pantalla-datos">
-                            <div class="valor-numerico" id="valor-${indice}">0</div>
-                            <div class="valor-unidad">TONELADAS</div>
+                const rejilla = document.createElement("div");
+                rejilla.className = "rejilla-planta";
+
+                seccion.appendChild(titulo);
+                seccion.appendChild(rejilla);
+                rejillaPrincipal.appendChild(seccion);
+
+                topicos.forEach((topico, indice) => {
+                    const silo = CONFIGURACION_SILOS[topico];
+                    if (silo.planta !== planta) return;
+
+                    const tarjeta = document.createElement("div");
+                    tarjeta.className = "tarjeta-silo";
+                    tarjeta.id = `tarjeta-${indice}`;
+
+                    tarjeta.innerHTML = `
+                        <div class="contenedor-medidor">
+                            <div class="anillo-escaneo"></div>
+                            <div class="anillo-principal" id="anillo-${indice}"></div>
+                            <div class="pantalla-datos">
+                                <div class="valor-numerico" id="valor-${indice}">--</div>
+                                <div class="valor-unidad">TONELADAS</div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="info-silo">
-                        <h3>${silo.nombre}</h3>
-                        <div class="capacidad-silo">CAPACIDAD: ${silo.capacidadMaxima} TN</div>
-                        <button
-                            type="button"
-                            class="boton-historial"
-                            onclick="mostrarHistorial('${topico}')"
-                        >
-                            VER HISTORIAL
-                        </button>
-                    </div>
-                `;
+                        <div class="info-silo">
+                            <h3>${silo.nombre}</h3>
+                            <div class="capacidad-silo">CAPACIDAD: ${silo.capacidadMaxima} TN</div>
+                            <button
+                                type="button"
+                                class="boton-historial"
+                                onclick="mostrarHistorial('${topico}')"
+                            >
+                                VER HISTORIAL
+                            </button>
+                        </div>
+                    `;
 
-                rejillaPrincipal.appendChild(tarjeta);
+                    rejilla.appendChild(tarjeta);
+                });
             });
         }
 
@@ -405,7 +453,7 @@
             const silo = CONFIGURACION_SILOS[topico];
             if (!silo) return;
 
-            tituloModal.textContent = `REGISTRO DE DATOS - ${silo.nombre}`;
+            tituloModal.textContent = `REGISTRO DE DATOS - ${silo.planta} - ${silo.nombre}`;
             modalHistorial.classList.add("activo");
             modalHistorial.setAttribute("aria-hidden", "false");
 
